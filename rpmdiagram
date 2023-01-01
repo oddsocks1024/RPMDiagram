@@ -1,0 +1,123 @@
+#!/usr/bin/perl
+#
+# Draw RPM Dependency Diagrams (c) 2009 Ian Chapman
+# Version: 1.0
+# Licence: GPLv2
+#
+use strict;
+use warnings;
+use GraphViz;
+
+if (@ARGV !=2) { &usage(); }
+my ($initial_rpm, $outfile) = @ARGV;
+my $cfgname = 'rpmdiagram.cfg';
+our $edgelabel = 'size';
+our %rdcfg;
+my (%used, %depused);
+
+if (-e "$ENV{HOME}/.$cfgname") { require "$ENV{HOME}/.$cfgname"; }
+elsif (-e "/etc/$cfgname") { require "/etc/$cfgname"; }
+elsif (-e "$cfgname") { require "$cfgname";}
+
+my $diagram = GraphViz->new(%rdcfg);
+
+print "Generating. Please Wait...\n";
+$initial_rpm = `rpm -q $initial_rpm`; #Resolve into exact version
+$initial_rpm =~ s/\n.*//; # Strip \n any anything after it
+$used{$initial_rpm} = "";
+&plot($initial_rpm);
+&save_image("$outfile");
+print "\nDone.\n";
+exit 0;
+
+sub plot()
+{
+    my ($parent) = @_;
+    my @packages;
+    print '.';
+
+    open (RPM, "rpm -qR $parent |");
+    my @deps = <RPM>;
+    close(RPM);
+    chomp(@deps);
+
+    # Resolve dependencies into package names
+    foreach my $dep (@deps)
+    {
+        $dep =~ s/ .*$//; #remove everything after a space
+        $dep =~ s/^\s+//; #remove leading spaces
+        $dep =~ s/\s+$//; #remove trailing spaces
+
+        # Check if a dependency has already been resolved. Do nothing if it has
+        # otherwise resolve it then mark it as resolved
+        if (!defined ($depused{"$dep"}))
+        {
+            open (B, "rpm -q --whatprovides \"$dep\"|");
+            my $child = <B>;
+            close(B);
+            if ($child !~ m/no package/) { push @packages, $child; }
+            # Define it
+            $depused{"$dep"} = "";
+        }
+    }
+
+    chomp(@packages);
+
+    foreach my $child (@packages)
+    {
+        # Check if this rpm has already been plotted. Do nothing if it has
+        # otherwise plot it and mark as plotted
+        if (!defined $used{$child})
+        {
+            $diagram->add_node($child);
+            if ($edgelabel eq 'size') { $diagram->add_edge($parent, $child, label => &size_2dp($child)); }
+            elsif ($edgelabel eq 'none' ) { $diagram->add_edge($parent, $child); }
+            else { $diagram->add_edge($parent, $child, label => &rpm_field($child, "$edgelabel")); }
+            print '.';
+            $used{$child} = ""; # Define it as used
+            &plot($child);
+        }
+    }
+}
+
+sub size_2dp()
+{
+    my ($child) = @_;
+    my $size = `rpm -q $child --queryformat=\"\%{size}\"`;
+
+    if ($size < 1024) {}
+    elsif ($size < 1048576) { $size = (int(($size / 1024) * 100) / 100) . ' Kb'; }
+    elsif ($size < 1073741824) { $size = (int(($size / 1048576) * 100) / 100) . ' Mb'; }
+
+    return $size;
+}
+
+sub rpm_field()
+{
+    my ($child, $field) = @_;
+    my $label = `rpm -q $child --queryformat=\"$field\"`;
+    return $label;
+}
+
+sub usage() { die "Usage: rpmdiagram <rpmname> <outputfile>\n"; }
+
+sub save_image()
+{
+    my ($filename) = @_;
+
+    open (IMAGE, ">$filename") or die "Unable to open $filename\n";
+    binmode(IMAGE);
+
+    if ($filename =~ m/.jpg$/i || $filename =~ m/.jpeg$/i) { print IMAGE $diagram->as_jpeg; }
+    elsif ($filename =~ m/.png$/i) { print IMAGE $diagram->as_png; }
+    elsif ($filename =~ m/.svg$/i) { print IMAGE $diagram->as_svg; }
+    elsif ($filename =~ m/.svgz$/i) { print IMAGE $diagram->as_svgz; }
+    elsif ($filename =~ m/.ps$/i) { print IMAGE $diagram->as_ps; }
+    elsif ($filename =~ m/.fig$/i) { print IMAGE $diagram->as_fig; }
+    else
+    {
+        print STDERR "\nUnknown file format requested. Defaulting to PNG.\n";
+        print IMAGE $diagram->as_png;
+    }
+    close (IMAGE);
+}

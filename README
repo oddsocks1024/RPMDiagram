@@ -1,0 +1,108 @@
+Introduction
+============
+
+RPMDiagram is a simple tool which generates a diagram of dependencies for an 
+*installed* RPM and saves the diagram as an image file. It is built on top of 
+GraphViz which does most of the hard work. 
+
+Licence: GPLv2
+
+Installation
+============
+
+If you've installed RPMDiagram via an RPM or similar packaging system then the 
+installation process should have been done for you.
+
+In order to run RPMDiagram, the following dependencies are required:
+
+* GraphViz
+* perl-GraphViz
+* perl
+* rpm
+
+You should install these using your distro's native packaging system otherwise 
+you will need to download, compile and install them manually.
+
+RPMDiagram doesn't require installation, you can simply 'cd' into the directory 
+and run it from there. However if you wish to install it system wide, then the 
+files should be placed in the following locations:
+
+File/Dir         Location    Permissions
+--------         --------    -----------
+rpmdiagram       /usr/bin/   root:root 0755
+rpmdiagram.cfg   /etc/       root:root 0644
+
+The documentation and examples are not required by RPMDiagram itself and so may
+be discarded or installed anywhere you see fit. However an appropriate location 
+on many distributions would be /usr/share/doc/rpmdiagram-1.0
+
+
+Usage
+=====
+
+Synopsis: rpmdiagram <rpmname> <imagefile>
+
+Example 1: rpmdiagram kernel kernel.png
+Example 2: rpmdiagram coreutils coreutils.jpg
+
+The image format is determined from the filename extension. Supported formats 
+are listed below which are in turn dependent on your implementation of 
+perl-GraphViz.
+
+.jpg	: JPEG image
+.jpeg	: JPEG image
+.png	: (DEFAULT) PNG image
+.svg	: SVG scalable image
+.svgz	: Compress CVG scalable image
+.ps	: Postscript
+.fig	: XFig file format
+
+
+Configuration
+=============
+
+The configuration file allows you to configure how the diagram will look, such 
+as colours, fonts, shapes and so on. For further information please examine the 
+configuration file.
+
+RPMDiagram looks for its configuration file in the following locations and in 
+this order:
+
+~/.rpmdiagram.cfg       (User's home directory)
+/etc/rpmdiagram.cfg     (System wide location)
+./rpmdiagram.cfg        (The current working directory)
+
+
+Implementation Notes
+====================
+
+1. RPMDiagram is dependent upon your installation of RPM as it calls this 
+command directly. This in turn means it's not as fast as it could be, but a
+comprehensive perl module appears to be lacking.
+
+2. Dependencies are resolved into their actual RPM. For example, a
+dependency on /usr/bin/foo would be resolved into the RPM providing that
+dependency.
+
+3. Dependency links are only drawn once on the diagram. This is intentional to 
+avoid horribly cluttered diagrams. For example:
+
+If libFoo has a dependency on libBar and they both have a dependency on glibc, 
+glibc will only be linked to one of them. The diagram would still be correct in 
+showing that glibc is a dependency of libFoo whether it was linked directly or
+via libBaa.
+
+4. RPMDiagram can generate very large images in terms of resolution. For example 
+some RPMs can generate sizes on the order of 10000 x 2000.
+
+
+Bugs
+====
+
+Probably. :-) 
+
+
+Contact
+=======
+
+ian.chapman@amiga-hardware.com
